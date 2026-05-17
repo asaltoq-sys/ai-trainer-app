@@ -24,75 +24,53 @@ export default function WorkoutPage() {
   const fetchWorkout = async () => {
     setLoading(true)
     try {
-      const { data: authData } = await supabase.auth.getUser()
-      const user = authData?.user
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user?.id).single()
-      
+      const { data: auth } = await supabase.auth.getUser()
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', auth.user?.id).single()
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile })
+        body: JSON.stringify({ profile: prof })
       })
       const data = await res.json()
-      
-      if (data && data.rutina) {
-        setRutina(data.rutina)
-      } else {
-        alert("La IA está descansando. Intenta de nuevo en unos segundos.")
-      }
+      if (data?.rutina) setRutina(data.rutina)
     } catch (e) {
-      alert("Error de conexión con el entrenador.")
+      alert("Error al conectar con Gemini")
     }
     setLoading(false)
   }
 
-  const validarSerie = (descanso: number, totalSeries: number) => {
-    if (serieActual < totalSeries) {
-      setTimer(descanso)
-      setIsResting(true)
-      setSerieActual(serieActual + 1)
+  const validarSerie = (descanso: number, total: number) => {
+    if (serieActual < total) {
+      setTimer(descanso); setIsResting(true); setSerieActual(serieActual + 1)
     } else {
       finalizarEjercicio()
     }
   }
 
   const finalizarEjercicio = async () => {
-    const rir = window.confirm("¿Podrías haber hecho más repeticiones?")
-    const { data: authData } = await supabase.auth.getUser()
-    const user = authData?.user
-    
-    if (user && activeEx) {
+    const rir = window.confirm("¿Has llegado al fallo? (OK = Sí / Cancelar = No)")
+    const { data: auth } = await supabase.auth.getUser()
+    if (auth.user && activeEx) {
       await supabase.from('exercise_logs').insert({
-        profile_id: user.id,
+        profile_id: auth.user.id,
         exercise_name: activeEx.nombre,
         series_completed: activeEx.sets,
         rir_score: rir ? "0" : "1-2"
       })
     }
-    setActiveEx(null)
-    setSerieActual(1)
+    setActiveEx(null); setSerieActual(1)
   }
 
-  if (loading) return (
-    <div className="bg-black min-h-screen text-white flex flex-col items-center justify-center p-6">
-      <div className="w-12 h-12 border-4 border-[#CCFF00] border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p className="text-[#CCFF00] font-bold animate-pulse">PREPARANDO TU SESIÓN...</p>
-    </div>
-  )
+  if (loading) return <div className="bg-black min-h-screen text-[#CCFF00] flex flex-col items-center justify-center font-bold italic">DISEÑANDO SESIÓN...</div>
 
   return (
     <div className="bg-black min-h-screen text-white p-6 pb-40">
-      <h1 className="text-2xl font-black text-[#CCFF00] mb-8 italic">ENTRENAMIENTO</h1>
+      <h1 className="text-2xl font-black text-[#CCFF00] mb-8 italic uppercase tracking-tighter">Entrenamiento</h1>
 
       {!rutina ? (
-        <div className="flex flex-col items-center justify-center border border-zinc-800 bg-zinc-900/50 rounded-3xl py-16 px-6 text-center">
-          <Dumbbell className="text-zinc-700 mb-6" size={60} />
-          <h2 className="text-xl font-bold mb-2">Sin rutina activa</h2>
-          <p className="text-zinc-500 text-sm mb-8 max-w-[200px]">Pulsa el botón para que la IA diseñe tu entrenamiento.</p>
-          <button 
-            onClick={fetchWorkout}
-            className="w-full bg-[#CCFF00] text-black py-5 rounded-2xl font-black text-xl shadow-xl shadow-[#CCFF00]/10 active:scale-95 transition-all"
-          >
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-10 text-center">
+          <Dumbbell className="mx-auto mb-6 text-zinc-700" size={60} />
+          <button onClick={fetchWorkout} className="w-full bg-[#CCFF00] text-black py-5 rounded-2xl font-black text-xl shadow-xl shadow-[#CCFF00]/10">
             GENERAR RUTINA ⚡️
           </button>
         </div>
@@ -100,19 +78,10 @@ export default function WorkoutPage() {
         <div className="space-y-8">
           {rutina.map((sec: any, idx: number) => (
             <div key={idx} className="space-y-4">
-              <p className="text-[#CCFF00] text-xs font-black uppercase tracking-[0.2em] border-l-2 border-[#CCFF00] pl-3">
-                {sec.seccion}
-              </p>
+              <p className="text-[#CCFF00] text-xs font-black uppercase border-l-2 border-[#CCFF00] pl-3">{sec.seccion}</p>
               {sec.ejercicios.map((ex: any, eIdx: number) => (
-                <button 
-                  key={eIdx} 
-                  onClick={() => setActiveEx(ex)}
-                  className="w-full bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center active:bg-zinc-800 transition-colors"
-                >
-                  <div className="text-left">
-                    <p className="font-bold text-lg">{ex.nombre}</p>
-                    <p className="text-zinc-500 text-sm font-medium">{ex.sets} series x {ex.reps}</p>
-                  </div>
+                <button key={eIdx} onClick={() => setActiveEx(ex)} className="w-full bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center active:bg-zinc-800 transition-colors">
+                  <div className="text-left"><p className="font-bold text-lg">{ex.nombre}</p><p className="text-zinc-500 text-sm">{ex.sets} x {ex.reps}</p></div>
                   <Play size={24} className="text-[#CCFF00] fill-[#CCFF00]" />
                 </button>
               ))}
@@ -121,17 +90,24 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {/* VENTANA DEL EJERCICIO (MODAL) */}
       {activeEx && (
         <div className="fixed inset-0 bg-black z-[100] p-6 flex flex-col">
           <div className="flex justify-between items-center mb-8">
             <div className="max-w-[80%]">
-              <h2 className="text-2xl font-black text-[#CCFF00] uppercase leading-tight">{activeEx.nombre}</h2>
-              <a href={activeEx.video} target="_blank" rel="noreferrer" className="text-zinc-400 text-xs flex items-center gap-1 mt-1 underline">
-                <Video size={14} /> Ver técnica
-              </a>
+              <h2 className="text-2xl font-black text-[#CCFF00] uppercase italic">{activeEx.nombre}</h2>
+              <a href={activeEx.video} target="_blank" rel="noreferrer" className="text-zinc-400 text-xs flex items-center gap-1 mt-1 underline"><Video size={14} /> TÉCNICA</a>
             </div>
             <button onClick={() => setActiveEx(null)} className="bg-zinc-900 p-2 rounded-full"><X size={28} /></button>
           </div>
-
-          <div className="flex-1 flex flex-col justify-center
+          <div className="flex-1 flex flex-col justify-center items-center">
+            {isResting ? (
+              <div className="text-center"><p className="text-zinc-500 font-bold mb-2 uppercase">Descanso</p><div className="text-[120px] font-black text-[#CCFF00] leading-none">{timer}s</div><button onClick={() => setTimer(0)} className="mt-10 text-zinc-500 underline text-sm">Saltar</button></div>
+            ) : (
+              <div className="text-center w-full"><p className="text-zinc-500 font-bold mb-2 uppercase">Serie</p><div className="text-[120px] font-black leading-none mb-4">{serieActual}<span className="text-4xl text-zinc-800">/{activeEx.sets}</span></div><p className="text-2xl font-bold text-zinc-400 mb-12">{activeEx.reps} REPS</p><button onClick={() => validarSerie(activeEx.descanso, activeEx.sets)} className="bg-[#CCFF00] text-black w-32 h-32 rounded-full font-black text-2xl shadow-2xl shadow-[#CCFF00]/20 mx-auto flex items-center justify-center">OK</button></div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
