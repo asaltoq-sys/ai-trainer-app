@@ -1,34 +1,49 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
     const { profile } = await req.json();
+    
+    // Traemos los datos técnicos de los ejercicios de la DB
+    const { data: dbExercises } = await supabase.from('exercises').select('*');
+
     const model = genAI.getGenerativeModel({ 
       model: "gemini-3-flash-preview",
-      generationConfig: { responseMimeType: "application/json" } // Forzamos JSON
+      generationConfig: { responseMimeType: "application/json" }
     });
 
     const prompt = `
-      Eres un entrenador personal de élite. Crea una rutina de entrenamiento.
+      Eres un entrenador experto. Crea una rutina HIIT/Fuerza.
       Usuario: ${profile.gender}, ${profile.age} años, ${profile.weight}kg, Nivel ${profile.fitness_level}.
-      Tiempo: ${profile.daily_time} min.
+      Tiempo disponible: ${profile.daily_time} min.
+      
+      EJERCICIOS DISPONIBLES (Usa estos nombres y datos):
+      ${JSON.stringify(dbExercises)}
 
-      Responde ÚNICAMENTE con este formato JSON:
+      INSTRUCCIÓN IMPORTANTE:
+      Calcula los KILOS adecuados para cada ejercicio basándote en el perfil del usuario.
+      
+      Responde SOLO con este formato JSON:
       {
         "rutina": [
           {
-            "seccion": "CALENTAMIENTO",
+            "seccion": "NOMBRE SECCION",
             "ejercicios": [
-              {"nombre": "Nombre", "sets": 1, "reps": "5 min", "descanso": 0, "video": "https://youtube.com/results?search_query=calentamiento+dinamico"}
-            ]
-          },
-          {
-            "seccion": "BLOQUE PRINCIPAL",
-            "ejercicios": [
-              {"nombre": "Sentadilla Goblet", "sets": 4, "reps": "12", "descanso": 60, "video": "https://youtube.com/results?search_query=goblet+squat"}
+              {
+                "nombre": "Nombre exacto de la DB",
+                "sets": 4,
+                "reps": "12",
+                "kilos": 15,
+                "descanso": 60,
+                "instrucciones": "Copia las instrucciones de la DB",
+                "img1": "URL1 de la DB",
+                "img2": "URL2 de la DB",
+                "video": "URL video de la DB"
+              }
             ]
           }
         ]
