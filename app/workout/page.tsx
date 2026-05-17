@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Play, CheckCircle2, Youtube, X, Dumbbell } from 'lucide-react'
+import { Play, CheckCircle2, Video, X, Dumbbell } from 'lucide-react'
 
 export default function WorkoutPage() {
   const [rutina, setRutina] = useState<any[] | null>(null)
@@ -11,7 +11,6 @@ export default function WorkoutPage() {
   const [timer, setTimer] = useState(0)
   const [isResting, setIsResting] = useState(false)
 
-  // Manejo del cronómetro
   useEffect(() => {
     let interval: any;
     if (isResting && timer > 0) {
@@ -25,7 +24,8 @@ export default function WorkoutPage() {
   const fetchWorkout = async () => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: authData } = await supabase.auth.getUser()
+      const user = authData?.user
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user?.id).single()
       
       const res = await fetch('/api/chat', {
@@ -38,10 +38,10 @@ export default function WorkoutPage() {
       if (data && data.rutina) {
         setRutina(data.rutina)
       } else {
-        alert("La IA no respondió con el formato correcto")
+        alert("La IA está descansando. Intenta de nuevo en unos segundos.")
       }
     } catch (e) {
-      alert("Error de conexión")
+      alert("Error de conexión con el entrenador.")
     }
     setLoading(false)
   }
@@ -58,7 +58,9 @@ export default function WorkoutPage() {
 
   const finalizarEjercicio = async () => {
     const rir = window.confirm("¿Podrías haber hecho más repeticiones?")
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: authData } = await supabase.auth.getUser()
+    const user = authData?.user
+    
     if (user && activeEx) {
       await supabase.from('exercise_logs').insert({
         profile_id: user.id,
@@ -73,42 +75,45 @@ export default function WorkoutPage() {
 
   if (loading) return (
     <div className="bg-black min-h-screen text-white flex flex-col items-center justify-center p-6">
-      <div className="w-10 h-10 border-4 border-[#CCFF00] border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p className="text-[#CCFF00] font-bold">CARGANDO ENTRENAMIENTO...</p>
+      <div className="w-12 h-12 border-4 border-[#CCFF00] border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-[#CCFF00] font-bold animate-pulse">PREPARANDO TU SESIÓN...</p>
     </div>
   )
 
   return (
     <div className="bg-black min-h-screen text-white p-6 pb-40">
-      <h1 className="text-xl font-black text-zinc-700 uppercase tracking-widest mb-8">Sesión</h1>
+      <h1 className="text-2xl font-black text-[#CCFF00] mb-8 italic">ENTRENAMIENTO</h1>
 
       {!rutina ? (
-        <div className="flex flex-col items-center justify-center border-2 border-zinc-900 rounded-3xl py-12 px-4">
-          <Dumbbell className="text-zinc-800 mb-6" size={48} />
-          <h2 className="text-2xl font-bold mb-6 text-center">No hay rutina activa</h2>
+        <div className="flex flex-col items-center justify-center border border-zinc-800 bg-zinc-900/50 rounded-3xl py-16 px-6 text-center">
+          <Dumbbell className="text-zinc-700 mb-6" size={60} />
+          <h2 className="text-xl font-bold mb-2">Sin rutina activa</h2>
+          <p className="text-zinc-500 text-sm mb-8 max-w-[200px]">Pulsa el botón para que la IA diseñe tu entrenamiento.</p>
           <button 
             onClick={fetchWorkout}
-            className="w-full max-w-xs bg-[#CCFF00] text-black py-5 rounded-2xl font-black text-xl shadow-lg shadow-[#CCFF00]/10"
+            className="w-full bg-[#CCFF00] text-black py-5 rounded-2xl font-black text-xl shadow-xl shadow-[#CCFF00]/10 active:scale-95 transition-all"
           >
             GENERAR RUTINA ⚡️
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {rutina.map((sec: any, idx: number) => (
-            <div key={idx} className="space-y-3">
-              <p className="text-[#CCFF00] text-xs font-bold uppercase tracking-tighter">{sec.seccion}</p>
+            <div key={idx} className="space-y-4">
+              <p className="text-[#CCFF00] text-xs font-black uppercase tracking-[0.2em] border-l-2 border-[#CCFF00] pl-3">
+                {sec.seccion}
+              </p>
               {sec.ejercicios.map((ex: any, eIdx: number) => (
                 <button 
                   key={eIdx} 
                   onClick={() => setActiveEx(ex)}
-                  className="w-full bg-zinc-900 p-5 rounded-2xl border border-zinc-800 flex justify-between items-center"
+                  className="w-full bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center active:bg-zinc-800 transition-colors"
                 >
                   <div className="text-left">
-                    <p className="font-bold">{ex.nombre}</p>
-                    <p className="text-zinc-500 text-xs">{ex.sets} x {ex.reps}</p>
+                    <p className="font-bold text-lg">{ex.nombre}</p>
+                    <p className="text-zinc-500 text-sm font-medium">{ex.sets} series x {ex.reps}</p>
                   </div>
-                  <Play size={18} className="text-[#CCFF00]" />
+                  <Play size={24} className="text-[#CCFF00] fill-[#CCFF00]" />
                 </button>
               ))}
             </div>
@@ -116,37 +121,17 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {/* MODAL DE EJERCICIO */}
+      {/* VENTANA DEL EJERCICIO (MODAL) */}
       {activeEx && (
         <div className="fixed inset-0 bg-black z-[100] p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-2xl font-black text-[#CCFF00] uppercase italic">{activeEx.nombre}</h2>
-            <button onClick={() => setActiveEx(null)} className="text-zinc-500"><X size={32} /></button>
+          <div className="flex justify-between items-center mb-8">
+            <div className="max-w-[80%]">
+              <h2 className="text-2xl font-black text-[#CCFF00] uppercase leading-tight">{activeEx.nombre}</h2>
+              <a href={activeEx.video} target="_blank" rel="noreferrer" className="text-zinc-400 text-xs flex items-center gap-1 mt-1 underline">
+                <Video size={14} /> Ver técnica
+              </a>
+            </div>
+            <button onClick={() => setActiveEx(null)} className="bg-zinc-900 p-2 rounded-full"><X size={28} /></button>
           </div>
 
-          <div className="flex-1 flex flex-col justify-center items-center">
-            {isResting ? (
-              <div className="text-center">
-                <p className="text-zinc-500 font-bold mb-2">DESCANSO</p>
-                <div className="text-9xl font-black text-[#CCFF00]">{timer}s</div>
-                <button onClick={() => setTimer(0)} className="mt-8 text-zinc-500 underline">Saltar</button>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-zinc-500 font-bold mb-2">SERIE</p>
-                <div className="text-9xl font-black">{serieActual}<span className="text-3xl text-zinc-800">/{activeEx.sets}</span></div>
-                <p className="text-2xl font-bold mt-4 text-zinc-400">{activeEx.reps} REPS</p>
-                <button 
-                  onClick={() => validarSerie(activeEx.descanso, activeEx.sets)}
-                  className="mt-12 bg-[#CCFF00] text-black w-32 h-32 rounded-full font-black text-xl shadow-xl shadow-[#CCFF00]/10"
-                >
-                  OK
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+          <div className="flex-1 flex flex-col justify-center
