@@ -15,11 +15,18 @@ export default function LoginPage() {
     
     if (error) {
       alert(error.message)
-    } else {
-      if (type === 'login') {
-        router.push('/onboarding') // <--- 3. CAMBIAR EL ALERT POR ESTO
+    } else if (data?.user) {
+      // --- ESTE ES EL CAMBIO INTELIGENTE ---
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', data.user.id)
+        .single()
+
+      if (profile) {
+        router.push('/dashboard') // Si ya tiene perfil, al panel
       } else {
-        alert('Revisa tu email para confirmar')
+        router.push('/onboarding') // Si es nuevo, a las preguntas
       }
     }
   }
